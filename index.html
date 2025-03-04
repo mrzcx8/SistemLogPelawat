@@ -1,423 +1,469 @@
-import React, { useState, useEffect } from 'react';
-import Papa from 'papaparse';
-
-const VisitorLogSystem = () => {
-  const [visitors, setVisitors] = useState([]);
-  const [lastUpdate, setLastUpdate] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [formData, setFormData] = useState({
-    Nama: '',
-    Tarikh: new Date().toISOString().split('T')[0],
-    MasaMasuk: new Date().toTimeString().slice(0, 5),
-    MasaKeluar: '',
-    Tujuan: ''
-  });
-  const [formError, setFormError] = useState('');
-  
-  // URL Google Sheets yang diterbitkan sebagai CSV
-  const GOOGLE_SHEETS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQI_3gP29phRHqwgUdfFkfDk401NEb0F4OpUP0zCJZEv3OuzWAVNVkfS9KEcawpTK-U0VUXQhvlr0gk/pub?output=csv";
-  
-  // Data contoh sebagai fallback
-  const fallbackData = [
-    {
-      Nama: "Ahmad Bin Abdullah",
-      Tarikh: "2025-03-04",
-      MasaMasuk: "09:15",
-      MasaKeluar: "10:30",
-      Tujuan: "Mesyuarat dengan Pengarah"
-    },
-    {
-      Nama: "Siti Binti Hassan",
-      Tarikh: "2025-03-04",
-      MasaMasuk: "10:00",
-      MasaKeluar: "",
-      Tujuan: "Penghantaran Dokumen"
-    }
-  ];
-  
-  // Fungsi untuk mendapatkan data dari Google Sheets
-  const fetchGoogleSheetsData = async () => {
-    try {
-      setLoading(true);
-      
-      // Dalam implementasi React yang sebenar, kita boleh menggunakan fetch
-      // Tetapi dalam environment Anthropic Claude, kita simulasikan fetch dengan data contoh
-      
-      // Cara sebenar untuk fetch dari Google Sheets akan seperti ini:
-      // const response = await fetch(GOOGLE_SHEETS_URL);
-      // const csvData = await response.text();
-      
-      // Simulasi fetch dari Google Sheets
-      console.log(`Fetching data from Google Sheets URL: ${GOOGLE_SHEETS_URL}`);
-      
-      // Parse data CSV
-      Papa.parse(GOOGLE_SHEETS_URL, {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          if (results.data && results.data.length > 0) {
-            setVisitors(results.data);
-            setError('');
-          } else {
-            // Fallback ke data contoh jika Google Sheets kosong
-            setVisitors(fallbackData);
-            setError('Data dari Google Sheets kosong. Menggunakan data contoh.');
-          }
-          setLoading(false);
-          setLastUpdate(new Date());
-        },
-        error: (parseError) => {
-          console.error('Error parsing CSV:', parseError);
-          setVisitors(fallbackData);
-          setError('Tidak dapat membaca data dari Google Sheets. Menggunakan data contoh.');
-          setLoading(false);
-          setLastUpdate(new Date());
-        }
-      });
-    } catch (fetchError) {
-      console.error('Error fetching data:', fetchError);
-      setVisitors(fallbackData);
-      setError('Gagal menyambung ke Google Sheets. Menggunakan data contoh.');
-      setLoading(false);
-      setLastUpdate(new Date());
-    }
-  };
-  
-  // Panggil API untuk mendapatkan data ketika komponen dimuatkan
-  useEffect(() => {
-    fetchGoogleSheetsData();
-    
-    // Kemaskini data setiap 10 saat
-    const intervalId = setInterval(() => {
-      fetchGoogleSheetsData();
-    }, 10000);
-    
-    return () => clearInterval(intervalId);
-  }, []);
-
-  // Format tarikh untuk paparan
-  const formatDate = (dateStr) => {
-    try {
-      const date = new Date(dateStr);
-      return date.toLocaleDateString('ms-MY');
-    } catch (e) {
-      return dateStr;
-    }
-  };
-
-  // Format masa untuk paparan
-  const formatTime = (timeStr) => {
-    return timeStr || '-';
-  };
-
-  // Kira tempoh lawatan
-  const calculateDuration = (entryTime, exitTime) => {
-    if (!exitTime) return 'Masih Berada';
-    
-    try {
-      const entry = new Date(`2000-01-01T${entryTime}`);
-      const exit = new Date(`2000-01-01T${exitTime}`);
-      
-      const diffMs = exit - entry;
-      const diffMins = Math.floor(diffMs / 60000);
-      const hours = Math.floor(diffMins / 60);
-      const mins = diffMins % 60;
-      
-      return `${hours}j ${mins}m`;
-    } catch (e) {
-      return 'Tidak Diketahui';
-    }
-  };
-
-  // Dapatkan warna latar untuk status
-  const getStatusColor = (exitTime) => {
-    return exitTime ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800';
-  };
-
-  // Dapatkan teks status
-  const getStatusText = (exitTime) => {
-    return exitTime ? 'Selesai' : 'Masih Berada';
-  };
-  
-  // Handle perubahan input borang
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value
-    });
-  };
-  
-  // Tambah pelawat baru
-  const handleAddVisitor = (e) => {
-    e.preventDefault();
-    
-    // Semak input
-    if (!formData.Nama || !formData.Tarikh || !formData.MasaMasuk || !formData.Tujuan) {
-      setFormError('Sila isi semua medan yang diperlukan');
-      return;
-    }
-    
-    // Tambah pelawat baru ke senarai
-    const newVisitors = [...visitors, formData];
-    
-    // Kemaskini senarai dan reset borang
-    setVisitors(newVisitors);
-    setFormError('');
-    setShowForm(false);
-    
-    // Reset borang kepada nilai default
-    setFormData({
-      Nama: '',
-      Tarikh: new Date().toISOString().split('T')[0],
-      MasaMasuk: new Date().toTimeString().slice(0, 5),
-      MasaKeluar: '',
-      Tujuan: ''
-    });
-    
-    // Kemaskini masa kemaskini
-    setLastUpdate(new Date());
-    
-    // Dalam implementasi sebenar, kita perlu menghantar data baru ke Google Sheets
-    // Ini akan memerlukan Google Sheets API atau webhook khusus
-    console.log('Dalam implementasi penuh, data baru akan dihantar ke Google Sheets API');
-  };
-  
-  // Checkout pelawat (tambah masa keluar)
-  const handleCheckout = (index) => {
-    const updatedVisitors = [...visitors];
-    updatedVisitors[index] = {
-      ...updatedVisitors[index],
-      MasaKeluar: new Date().toTimeString().slice(0, 5)
-    };
-    
-    setVisitors(updatedVisitors);
-    setLastUpdate(new Date());
-    
-    // Dalam implementasi sebenar, kita perlu menghantar kemaskini ke Google Sheets
-    console.log('Dalam implementasi penuh, kemaskini akan dihantar ke Google Sheets API');
-  };
-
-  // Manual refresh button
-  const handleManualRefresh = () => {
-    fetchGoogleSheetsData();
-  };
-
-  return (
-    <div className="w-full max-w-6xl mx-auto p-4 bg-white rounded-lg shadow-lg">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Sistem Log Kemasukan Pelawat</h1>
-        <div className="flex items-center space-x-4">
-          <button 
-            onClick={handleManualRefresh}
-            className="p-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 transition"
-            title="Refresh Data"
-          >
-            🔄
-          </button>
-          <div className="text-sm text-gray-500">
-            {lastUpdate && (
-              <span>Kemaskini: {lastUpdate.toLocaleTimeString('ms-MY')}</span>
-            )}
-          </div>
-        </div>
-      </div>
-      
-      <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-2 md:space-y-0">
-        <div className="p-2 bg-blue-50 text-blue-700 rounded-md border border-blue-200 text-sm">
-          <p>Disambungkan ke Google Sheets. {visitors.length} pelawat direkodkan.</p>
-          <p className="text-xs mt-1 text-blue-500">{GOOGLE_SHEETS_URL}</p>
-        </div>
-        <button 
-          onClick={() => setShowForm(!showForm)} 
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-        >
-          {showForm ? "Tutup Borang" : "Daftar Pelawat Baru"}
-        </button>
-      </div>
-      
-      {error && (
-        <div className="mb-4 p-3 bg-yellow-50 text-yellow-700 rounded-md border border-yellow-200">
-          <p>{error}</p>
-        </div>
-      )}
-      
-      {/* Borang Daftar Pelawat Baru */}
-      {showForm && (
-        <div className="mb-6 p-4 bg-gray-50 border rounded-md">
-          <h2 className="text-lg font-medium mb-4">Daftar Pelawat Baru</h2>
-          
-          {formError && (
-            <div className="mb-4 p-2 bg-red-100 text-red-600 rounded-md">
-              {formError}
-            </div>
-          )}
-          
-          <form onSubmit={handleAddVisitor}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nama Pelawat <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="Nama"
-                  value={formData.Nama}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Masukkan nama pelawat"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tarikh <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  name="Tarikh"
-                  value={formData.Tarikh}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Masa Masuk <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="time"
-                  name="MasaMasuk"
-                  value={formData.MasaMasuk}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Masa Keluar
-                </label>
-                <input
-                  type="time"
-                  name="MasaKeluar"
-                  value={formData.MasaKeluar}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Biarkan kosong jika masih berada"
-                />
-              </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tujuan Lawatan <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="Tujuan"
-                  value={formData.Tujuan}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Contoh: Mesyuarat, Penghantaran Dokumen"
-                />
-              </div>
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Log Kemasukan Pelawat</title>
+    <!-- Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- PapaParse untuk membaca CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-4 max-w-6xl">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            
+            <!-- Tajuk Sistem -->
+            <div class="flex justify-between items-center mb-6 border-b pb-4">
+                <h1 class="text-2xl font-bold text-gray-800">Sistem Log Kemasukan Pelawat</h1>
+                <div class="flex items-center space-x-4">
+                    <button 
+                        id="refreshButton"
+                        class="p-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 transition"
+                        title="Refresh Data"
+                    >
+                        🔄
+                    </button>
+                    <div class="text-sm text-gray-500" id="lastUpdateTime">
+                        Kemaskini: -
+                    </div>
+                </div>
             </div>
             
-            <div className="mt-4 flex justify-end space-x-2">
-              <button
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 transition"
-              >
-                Batal
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-              >
-                Daftar Pelawat
-              </button>
+            <!-- Status Sambungan -->
+            <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-2 md:space-y-0">
+                <div class="p-2 bg-blue-50 text-blue-700 rounded-md border border-blue-200 text-sm">
+                    <p id="connectionStatus">Menyambung ke Google Sheets...</p>
+                    <p class="text-xs mt-1 text-blue-500">https://docs.google.com/spreadsheets/d/e/2PACX-1vQI_3gP29phRHqwgUdfFkfDk401NEb0F4OpUP0zCJZEv3OuzWAVNVkfS9KEcawpTK-U0VUXQhvlr0gk/pub?output=csv</p>
+                </div>
+                <button 
+                    id="toggleFormButton"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                >
+                    Daftar Pelawat Baru
+                </button>
             </div>
-          </form>
+            
+            <!-- Notifikasi Ralat -->
+            <div id="errorContainer" class="mb-4 p-3 bg-yellow-50 text-yellow-700 rounded-md border border-yellow-200 hidden">
+                <p id="errorMessage"></p>
+            </div>
+            
+            <!-- Borang Daftar Pelawat Baru -->
+            <div id="visitorForm" class="mb-6 p-4 bg-gray-50 border rounded-md hidden">
+                <h2 class="text-lg font-medium mb-4">Daftar Pelawat Baru</h2>
+                
+                <div id="formError" class="mb-4 p-2 bg-red-100 text-red-600 rounded-md hidden">
+                    
+                </div>
+                
+                <form id="newVisitorForm">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Nama Pelawat <span class="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                name="Nama"
+                                id="visitorName"
+                                class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Masukkan nama pelawat"
+                            />
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Tarikh <span class="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="date"
+                                name="Tarikh"
+                                id="visitorDate"
+                                class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Masa Masuk <span class="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="time"
+                                name="MasaMasuk"
+                                id="entryTime"
+                                class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Masa Keluar
+                            </label>
+                            <input
+                                type="time"
+                                name="MasaKeluar"
+                                id="exitTime"
+                                class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Biarkan kosong jika masih berada"
+                            />
+                        </div>
+                        
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Tujuan Lawatan <span class="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                name="Tujuan"
+                                id="visitPurpose"
+                                class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Contoh: Mesyuarat, Penghantaran Dokumen"
+                            />
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 flex justify-end space-x-2">
+                        <button
+                            type="button"
+                            id="cancelFormButton"
+                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 transition"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                        >
+                            Daftar Pelawat
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Loading Indicator -->
+            <div id="loadingIndicator" class="p-8 text-center">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
+                <p>Sedang memuat data dari Google Sheets...</p>
+            </div>
+            
+            <!-- Jadual Senarai Pelawat -->
+            <div id="visitorTableContainer" class="overflow-x-auto hidden">
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="bg-gray-100 text-left">
+                            <th class="p-3 border-b font-medium">Nama</th>
+                            <th class="p-3 border-b font-medium">Tarikh</th>
+                            <th class="p-3 border-b font-medium">Masa Masuk</th>
+                            <th class="p-3 border-b font-medium">Masa Keluar</th>
+                            <th class="p-3 border-b font-medium">Tempoh</th>
+                            <th class="p-3 border-b font-medium">Status</th>
+                            <th class="p-3 border-b font-medium">Tujuan Lawatan</th>
+                            <th class="p-3 border-b font-medium">Tindakan</th>
+                        </tr>
+                    </thead>
+                    <tbody id="visitorTableBody">
+                        <!-- Data akan diisi oleh JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Nota Penggunaan -->
+            <div class="mt-6 p-4 bg-gray-50 rounded-md">
+                <h2 class="text-lg font-semibold mb-2">Nota Penggunaan:</h2>
+                <ul class="list-disc ml-5 space-y-1 text-sm">
+                    <li>Data diambil secara langsung dari Google Sheets yang diterbitkan</li>
+                    <li>Kemaskini automatik setiap 10 saat</li>
+                    <li>Klik butang 🔄 untuk kemaskini manual</li>
+                    <li>Untuk implementasi penuh dengan kemampuan menulis ke Google Sheets, hubungi pengaturcara sistem anda</li>
+                </ul>
+            </div>
         </div>
-      )}
-      
-      {/* Jadual Senarai Pelawat */}
-      {loading ? (
-        <div className="p-8 text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
-          <p>Sedang memuat data dari Google Sheets...</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-gray-100 text-left">
-                <th className="p-3 border-b font-medium">Nama</th>
-                <th className="p-3 border-b font-medium">Tarikh</th>
-                <th className="p-3 border-b font-medium">Masa Masuk</th>
-                <th className="p-3 border-b font-medium">Masa Keluar</th>
-                <th className="p-3 border-b font-medium">Tempoh</th>
-                <th className="p-3 border-b font-medium">Status</th>
-                <th className="p-3 border-b font-medium">Tujuan Lawatan</th>
-                <th className="p-3 border-b font-medium">Tindakan</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visitors.map((visitor, index) => (
-                <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                  <td className="p-3 border-b font-medium">{visitor.Nama || '-'}</td>
-                  <td className="p-3 border-b">{formatDate(visitor.Tarikh)}</td>
-                  <td className="p-3 border-b">{formatTime(visitor.MasaMasuk)}</td>
-                  <td className="p-3 border-b">{formatTime(visitor.MasaKeluar)}</td>
-                  <td className="p-3 border-b">
-                    {calculateDuration(visitor.MasaMasuk, visitor.MasaKeluar)}
-                  </td>
-                  <td className="p-3 border-b">
-                    <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(visitor.MasaKeluar)}`}>
-                      {getStatusText(visitor.MasaKeluar)}
-                    </span>
-                  </td>
-                  <td className="p-3 border-b">{visitor.Tujuan || '-'}</td>
-                  <td className="p-3 border-b">
-                    {!visitor.MasaKeluar && (
-                      <button
-                        onClick={() => handleCheckout(index)}
-                        className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition"
-                      >
-                        Checkout
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {visitors.length === 0 && (
-                <tr>
-                  <td colSpan="8" className="p-3 text-center text-gray-500">
-                    Tiada pelawat yang direkodkan setakat ini
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-      
-      <div className="mt-6 p-4 bg-gray-50 rounded-md">
-        <h2 className="text-lg font-semibold mb-2">Nota Penggunaan:</h2>
-        <ul className="list-disc ml-5 space-y-1 text-sm">
-          <li>Data diambil secara langsung dari Google Sheets yang diterbitkan</li>
-          <li>Kemaskini automatik setiap 10 saat</li>
-          <li>Klik butang 🔄 untuk kemaskini manual</li>
-          <li>Dalam implementasi penuh, perubahan di sini akan dikemaskini ke Google Sheets</li>
-        </ul>
-      </div>
     </div>
-  );
-};
-
-export default VisitorLogSystem;
+    
+    <!-- JavaScript -->
+    <script>
+        // URL Google Sheets CSV
+        const GOOGLE_SHEETS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQI_3gP29phRHqwgUdfFkfDk401NEb0F4OpUP0zCJZEv3OuzWAVNVkfS9KEcawpTK-U0VUXQhvlr0gk/pub?output=csv";
+        
+        // Elemen-elemen UI
+        const toggleFormButton = document.getElementById('toggleFormButton');
+        const visitorForm = document.getElementById('visitorForm');
+        const cancelFormButton = document.getElementById('cancelFormButton');
+        const newVisitorForm = document.getElementById('newVisitorForm');
+        const refreshButton = document.getElementById('refreshButton');
+        const lastUpdateTime = document.getElementById('lastUpdateTime');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const visitorTableContainer = document.getElementById('visitorTableContainer');
+        const visitorTableBody = document.getElementById('visitorTableBody');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const errorContainer = document.getElementById('errorContainer');
+        const errorMessage = document.getElementById('errorMessage');
+        const formError = document.getElementById('formError');
+        
+        // Simpan data pengunjung
+        let visitors = [];
+        
+        // Data dummy sebagai fallback
+        const fallbackData = [
+            {
+                Nama: "Ahmad Bin Abdullah",
+                Tarikh: "2025-03-04",
+                MasaMasuk: "09:15",
+                MasaKeluar: "10:30",
+                Tujuan: "Mesyuarat dengan Pengarah"
+            },
+            {
+                Nama: "Siti Binti Hassan",
+                Tarikh: "2025-03-04",
+                MasaMasuk: "10:00",
+                MasaKeluar: "",
+                Tujuan: "Penghantaran Dokumen"
+            },
+            {
+                Nama: "Tan Wei Ming",
+                Tarikh: "2025-03-04",
+                MasaMasuk: "08:30",
+                MasaKeluar: "11:45",
+                Tujuan: "Lawatan Teknikal"
+            }
+        ];
+        
+        // Tetapkan nilai default untuk borang
+        document.getElementById('visitorDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('entryTime').value = new Date().toTimeString().slice(0, 5);
+        
+        // Toggle borang
+        toggleFormButton.addEventListener('click', () => {
+            if (visitorForm.classList.contains('hidden')) {
+                visitorForm.classList.remove('hidden');
+                toggleFormButton.textContent = 'Tutup Borang';
+            } else {
+                visitorForm.classList.add('hidden');
+                toggleFormButton.textContent = 'Daftar Pelawat Baru';
+                formError.classList.add('hidden');
+            }
+        });
+        
+        // Batal borang
+        cancelFormButton.addEventListener('click', () => {
+            visitorForm.classList.add('hidden');
+            toggleFormButton.textContent = 'Daftar Pelawat Baru';
+            formError.classList.add('hidden');
+        });
+        
+        // Hantar borang
+        newVisitorForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            // Ambil nilai dari borang
+            const name = document.getElementById('visitorName').value;
+            const date = document.getElementById('visitorDate').value;
+            const entryTime = document.getElementById('entryTime').value;
+            const exitTime = document.getElementById('exitTime').value;
+            const purpose = document.getElementById('visitPurpose').value;
+            
+            // Validasi
+            if (!name || !date || !entryTime || !purpose) {
+                formError.textContent = 'Sila isi semua medan yang diperlukan';
+                formError.classList.remove('hidden');
+                return;
+            }
+            
+            // Tambah pengunjung baru
+            const newVisitor = {
+                Nama: name,
+                Tarikh: date,
+                MasaMasuk: entryTime,
+                MasaKeluar: exitTime,
+                Tujuan: purpose
+            };
+            
+            visitors.unshift(newVisitor); // Tambah ke awal senarai
+            renderVisitorTable();
+            updateLastUpdateTime();
+            
+            // Reset dan tutup borang
+            newVisitorForm.reset();
+            document.getElementById('visitorDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('entryTime').value = new Date().toTimeString().slice(0, 5);
+            visitorForm.classList.add('hidden');
+            toggleFormButton.textContent = 'Daftar Pelawat Baru';
+            formError.classList.add('hidden');
+            
+            // Dalam implementasi penuh, di sini akan ada kod untuk menghantar data ke Google Sheets
+            console.log('New visitor added:', newVisitor);
+        });
+        
+        // Fungsi untuk mendapatkan data dari Google Sheets
+        function fetchVisitorData() {
+            loadingIndicator.classList.remove('hidden');
+            visitorTableContainer.classList.add('hidden');
+            
+            Papa.parse(GOOGLE_SHEETS_URL, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    if (results.data && results.data.length > 0) {
+                        visitors = results.data;
+                        connectionStatus.textContent = `Disambungkan ke Google Sheets. ${visitors.length} pelawat direkodkan.`;
+                        errorContainer.classList.add('hidden');
+                    } else {
+                        visitors = fallbackData;
+                        showError('Data dari Google Sheets kosong. Menggunakan data contoh.');
+                    }
+                    
+                    renderVisitorTable();
+                    updateLastUpdateTime();
+                    loadingIndicator.classList.add('hidden');
+                    visitorTableContainer.classList.remove('hidden');
+                },
+                error: function(error) {
+                    console.error('Error fetching data:', error);
+                    visitors = fallbackData;
+                    showError('Gagal menyambung ke Google Sheets. Menggunakan data contoh.');
+                    
+                    renderVisitorTable();
+                    updateLastUpdateTime();
+                    loadingIndicator.classList.add('hidden');
+                    visitorTableContainer.classList.remove('hidden');
+                }
+            });
+        }
+        
+        // Tunjuk mesej ralat
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorContainer.classList.remove('hidden');
+            connectionStatus.textContent = `Menggunakan data contoh. ${visitors.length} pelawat direkodkan.`;
+        }
+        
+        // Format tarikh untuk paparan
+        function formatDate(dateStr) {
+            try {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('ms-MY');
+            } catch (e) {
+                return dateStr;
+            }
+        }
+        
+        // Format masa untuk paparan
+        function formatTime(timeStr) {
+            return timeStr || '-';
+        }
+        
+        // Kira tempoh lawatan
+        function calculateDuration(entryTime, exitTime) {
+            if (!exitTime) return 'Masih Berada';
+            
+            try {
+                const entry = new Date(`2000-01-01T${entryTime}`);
+                const exit = new Date(`2000-01-01T${exitTime}`);
+                
+                const diffMs = exit - entry;
+                const diffMins = Math.floor(diffMs / 60000);
+                const hours = Math.floor(diffMins / 60);
+                const mins = diffMins % 60;
+                
+                return `${hours}j ${mins}m`;
+            } catch (e) {
+                return 'Tidak Diketahui';
+            }
+        }
+        
+        // Dapatkan warna latar untuk status
+        function getStatusColor(exitTime) {
+            return exitTime ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800';
+        }
+        
+        // Dapatkan teks status
+        function getStatusText(exitTime) {
+            return exitTime ? 'Selesai' : 'Masih Berada';
+        }
+        
+        // Kemaskini masa kemaskini terakhir
+        function updateLastUpdateTime() {
+            const now = new Date();
+            lastUpdateTime.textContent = `Kemaskini: ${now.toLocaleTimeString('ms-MY')}`;
+        }
+        
+        // Render jadual pelawat
+        function renderVisitorTable() {
+            visitorTableBody.innerHTML = '';
+            
+            if (visitors.length === 0) {
+                const emptyRow = document.createElement('tr');
+                emptyRow.innerHTML = `
+                    <td colspan="8" class="p-3 text-center text-gray-500">
+                        Tiada pelawat yang direkodkan setakat ini
+                    </td>
+                `;
+                visitorTableBody.appendChild(emptyRow);
+                return;
+            }
+            
+            visitors.forEach((visitor, index) => {
+                const row = document.createElement('tr');
+                row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                
+                row.innerHTML = `
+                    <td class="p-3 border-b font-medium">${visitor.Nama || '-'}</td>
+                    <td class="p-3 border-b">${formatDate(visitor.Tarikh)}</td>
+                    <td class="p-3 border-b">${formatTime(visitor.MasaMasuk)}</td>
+                    <td class="p-3 border-b">${formatTime(visitor.MasaKeluar)}</td>
+                    <td class="p-3 border-b">
+                        ${calculateDuration(visitor.MasaMasuk, visitor.MasaKeluar)}
+                    </td>
+                    <td class="p-3 border-b">
+                        <span class="px-2 py-1 rounded-full text-xs ${getStatusColor(visitor.MasaKeluar)}">
+                            ${getStatusText(visitor.MasaKeluar)}
+                        </span>
+                    </td>
+                    <td class="p-3 border-b">${visitor.Tujuan || '-'}</td>
+                    <td class="p-3 border-b">
+                        ${!visitor.MasaKeluar ? `
+                            <button
+                                data-index="${index}"
+                                class="checkout-button px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition"
+                            >
+                                Checkout
+                            </button>
+                        ` : ''}
+                    </td>
+                `;
+                
+                visitorTableBody.appendChild(row);
+            });
+            
+            // Tambah event listener untuk butang checkout
+            document.querySelectorAll('.checkout-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    const index = parseInt(this.getAttribute('data-index'));
+                    checkoutVisitor(index);
+                });
+            });
+        }
+        
+        // Checkout pelawat
+        function checkoutVisitor(index) {
+            visitors[index].MasaKeluar = new Date().toTimeString().slice(0, 5);
+            renderVisitorTable();
+            updateLastUpdateTime();
+            
+            // Dalam implementasi penuh, di sini akan ada kod untuk menghantar data ke Google Sheets
+            console.log('Visitor checked out:', visitors[index]);
+        }
+        
+        // Event listener untuk butang refresh
+        refreshButton.addEventListener('click', fetchVisitorData);
+        
+        // Muat data pada permulaan
+        fetchVisitorData();
+        
+        // Kemaskini automatik setiap 10 saat
+        setInterval(fetchVisitorData, 10000);
+    </script>
+</body>
+</html>
