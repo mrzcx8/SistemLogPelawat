@@ -20,7 +20,7 @@
                     <button 
                         id="refreshButton"
                         class="p-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 transition"
-                        title="Refresh Data"
+                        title="Muat Semula Data"
                     >
                         🔄
                     </button>
@@ -30,18 +30,26 @@
                 </div>
             </div>
             
-            <!-- Status Sambungan -->
+            <!-- Status Sambungan & Butang Tindakan -->
             <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-2 md:space-y-0">
                 <div class="p-2 bg-blue-50 text-blue-700 rounded-md border border-blue-200 text-sm">
                     <p id="connectionStatus">Menyambung ke Google Sheets...</p>
                     <p class="text-xs mt-1 text-blue-500">https://docs.google.com/spreadsheets/d/e/2PACX-1vQI_3gP29phRHqwgUdfFkfDk401NEb0F4OpUP0zCJZEv3OuzWAVNVkfS9KEcawpTK-U0VUXQhvlr0gk/pub?output=csv</p>
                 </div>
-                <button 
-                    id="toggleFormButton"
-                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-                >
-                    Daftar Pelawat Baru
-                </button>
+                <div class="flex space-x-2">
+                    <button 
+                        id="downloadButton"
+                        class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition flex items-center"
+                    >
+                        <span class="mr-1">📥</span> Muat Turun Data
+                    </button>
+                    <button 
+                        id="toggleFormButton"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                    >
+                        Daftar Pelawat Baru
+                    </button>
+                </div>
             </div>
             
             <!-- Notifikasi Ralat -->
@@ -193,6 +201,15 @@
                 </form>
             </div>
             
+            <!-- Panduan Checkout -->
+            <div class="mb-6 p-3 bg-purple-50 border border-purple-200 rounded-md">
+                <h3 class="text-purple-800 font-medium">Panduan Checkout di Google Sheets:</h3>
+                <p class="text-sm mt-1 text-purple-700">
+                    Untuk menandakan pelawat telah checkout di Google Sheets, isikan kolum "MasaKeluar" dengan format waktu 24 jam (contoh: 15:30).
+                    Ini akan secara automatik menukarkan status pelawat kepada "Selesai" dalam sistem ini.
+                </p>
+            </div>
+            
             <!-- Loading Indicator -->
             <div id="loadingIndicator" class="p-8 text-center">
                 <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
@@ -227,7 +244,9 @@
                 <ul class="list-disc ml-5 space-y-1 text-sm">
                     <li>Data diambil secara langsung dari Google Sheets yang diterbitkan</li>
                     <li>Klik butang 🔄 untuk kemaskini manual</li>
-                    <li>Untuk implementasi penuh dengan kemampuan menulis ke Google Sheets, hubungi pengaturcara sistem anda</li>
+                    <li>Gunakan butang "Muat Turun Data" untuk menyimpan data pelawat dalam format CSV</li>
+                    <li>Butang "Checkout" akan mengisi masa keluar dengan masa semasa (tidak disimpan ke Google Sheets)</li>
+                    <li>Untuk menulis ke Google Sheets, anda perlu menggunakan Google Apps Script atau Google Sheets API</li>
                 </ul>
             </div>
         </div>
@@ -244,6 +263,7 @@
         const cancelFormButton = document.getElementById('cancelFormButton');
         const newVisitorForm = document.getElementById('newVisitorForm');
         const refreshButton = document.getElementById('refreshButton');
+        const downloadButton = document.getElementById('downloadButton');
         const lastUpdateTime = document.getElementById('lastUpdateTime');
         const loadingIndicator = document.getElementById('loadingIndicator');
         const visitorTableContainer = document.getElementById('visitorTableContainer');
@@ -404,6 +424,34 @@
             });
         }
         
+        // Fungsi untuk muat turun data sebagai CSV
+        function downloadVisitorData() {
+            if (visitors.length === 0) {
+                alert('Tiada data untuk dimuat turun');
+                return;
+            }
+            
+            // Dapatkan tarikh untuk nama fail
+            const today = new Date();
+            const dateStr = today.toISOString().slice(0, 10);
+            
+            // Tukar data kepada CSV
+            const csv = Papa.unparse(visitors);
+            
+            // Buat blob dan link
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            
+            // Buat link muat turun dan klik secara automatik
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `log_pelawat_${dateStr}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
         // Tunjuk mesej ralat
         function showError(message) {
             errorMessage.textContent = message;
@@ -532,11 +580,11 @@
         // Event listener untuk butang refresh
         refreshButton.addEventListener('click', fetchVisitorData);
         
+        // Event listener untuk butang muat turun
+        downloadButton.addEventListener('click', downloadVisitorData);
+        
         // Muat data pada permulaan
         fetchVisitorData();
-        
-        // Dibuang: Auto-refresh tiap 10 saat
-        // setInterval(fetchVisitorData, 10000);
     </script>
 </body>
 </html>
