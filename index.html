@@ -74,6 +74,19 @@
                         
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
+                                No. Kenderaan
+                            </label>
+                            <input
+                                type="text"
+                                name="NoKenderaan"
+                                id="vehicleNumber"
+                                class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Contoh: ABC 1234"
+                            />
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
                                 Tarikh <span class="text-red-500">*</span>
                             </label>
                             <input
@@ -81,6 +94,19 @@
                                 name="Tarikh"
                                 id="visitorDate"
                                 class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Organisasi / Syarikat
+                            </label>
+                            <input
+                                type="text"
+                                name="Organisasi"
+                                id="organization"
+                                class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Masukkan organisasi/syarikat"
                             />
                         </div>
                         
@@ -106,6 +132,32 @@
                                 id="exitTime"
                                 class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 placeholder="Biarkan kosong jika masih berada"
+                            />
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                No. Telefon
+                            </label>
+                            <input
+                                type="tel"
+                                name="NoTelefon"
+                                id="phoneNumber"
+                                class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Contoh: 012-3456789"
+                            />
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                No. Kad Pengenalan/Passport
+                            </label>
+                            <input
+                                type="text"
+                                name="NoKP"
+                                id="idNumber"
+                                class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Contoh: 990101-10-1234"
                             />
                         </div>
                         
@@ -153,6 +205,7 @@
                     <thead>
                         <tr class="bg-gray-100 text-left">
                             <th class="p-3 border-b font-medium">Nama</th>
+                            <th class="p-3 border-b font-medium">No. Kenderaan</th>
                             <th class="p-3 border-b font-medium">Tarikh</th>
                             <th class="p-3 border-b font-medium">Masa Masuk</th>
                             <th class="p-3 border-b font-medium">Masa Keluar</th>
@@ -173,7 +226,6 @@
                 <h2 class="text-lg font-semibold mb-2">Nota Penggunaan:</h2>
                 <ul class="list-disc ml-5 space-y-1 text-sm">
                     <li>Data diambil secara langsung dari Google Sheets yang diterbitkan</li>
-                    <li>Kemaskini automatik setiap 10 saat</li>
                     <li>Klik butang 🔄 untuk kemaskini manual</li>
                     <li>Untuk implementasi penuh dengan kemampuan menulis ke Google Sheets, hubungi pengaturcara sistem anda</li>
                 </ul>
@@ -208,24 +260,36 @@
         const fallbackData = [
             {
                 Nama: "Ahmad Bin Abdullah",
+                NoKenderaan: "ABC 1234",
                 Tarikh: "2025-03-04",
                 MasaMasuk: "09:15",
                 MasaKeluar: "10:30",
-                Tujuan: "Mesyuarat dengan Pengarah"
+                Tujuan: "Mesyuarat dengan Pengarah",
+                Organisasi: "Telekom Malaysia",
+                NoTelefon: "012-3456789",
+                NoKP: "860101-10-1234"
             },
             {
                 Nama: "Siti Binti Hassan",
+                NoKenderaan: "DEF 5678",
                 Tarikh: "2025-03-04",
                 MasaMasuk: "10:00",
                 MasaKeluar: "",
-                Tujuan: "Penghantaran Dokumen"
+                Tujuan: "Penghantaran Dokumen",
+                Organisasi: "JKR",
+                NoTelefon: "019-8765432",
+                NoKP: "900505-14-5678"
             },
             {
                 Nama: "Tan Wei Ming",
+                NoKenderaan: "",
                 Tarikh: "2025-03-04",
                 MasaMasuk: "08:30",
                 MasaKeluar: "11:45",
-                Tujuan: "Lawatan Teknikal"
+                Tujuan: "Lawatan Teknikal",
+                Organisasi: "Cyberview Sdn Bhd",
+                NoTelefon: "013-9876543",
+                NoKP: "880303-08-1122"
             }
         ];
         
@@ -258,10 +322,14 @@
             
             // Ambil nilai dari borang
             const name = document.getElementById('visitorName').value;
+            const vehicleNumber = document.getElementById('vehicleNumber').value;
             const date = document.getElementById('visitorDate').value;
             const entryTime = document.getElementById('entryTime').value;
             const exitTime = document.getElementById('exitTime').value;
             const purpose = document.getElementById('visitPurpose').value;
+            const organization = document.getElementById('organization').value;
+            const phoneNumber = document.getElementById('phoneNumber').value;
+            const idNumber = document.getElementById('idNumber').value;
             
             // Validasi
             if (!name || !date || !entryTime || !purpose) {
@@ -273,10 +341,14 @@
             // Tambah pengunjung baru
             const newVisitor = {
                 Nama: name,
+                NoKenderaan: vehicleNumber,
                 Tarikh: date,
                 MasaMasuk: entryTime,
                 MasaKeluar: exitTime,
-                Tujuan: purpose
+                Tujuan: purpose,
+                Organisasi: organization,
+                NoTelefon: phoneNumber,
+                NoKP: idNumber
             };
             
             visitors.unshift(newVisitor); // Tambah ke awal senarai
@@ -396,7 +468,7 @@
             if (visitors.length === 0) {
                 const emptyRow = document.createElement('tr');
                 emptyRow.innerHTML = `
-                    <td colspan="8" class="p-3 text-center text-gray-500">
+                    <td colspan="9" class="p-3 text-center text-gray-500">
                         Tiada pelawat yang direkodkan setakat ini
                     </td>
                 `;
@@ -410,6 +482,7 @@
                 
                 row.innerHTML = `
                     <td class="p-3 border-b font-medium">${visitor.Nama || '-'}</td>
+                    <td class="p-3 border-b">${visitor.NoKenderaan || '-'}</td>
                     <td class="p-3 border-b">${formatDate(visitor.Tarikh)}</td>
                     <td class="p-3 border-b">${formatTime(visitor.MasaMasuk)}</td>
                     <td class="p-3 border-b">${formatTime(visitor.MasaKeluar)}</td>
@@ -462,8 +535,8 @@
         // Muat data pada permulaan
         fetchVisitorData();
         
-        // Kemaskini automatik setiap 10 saat
-        setInterval(fetchVisitorData, 10000);
+        // Dibuang: Auto-refresh tiap 10 saat
+        // setInterval(fetchVisitorData, 10000);
     </script>
 </body>
 </html>
