@@ -34,7 +34,7 @@
             <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center space-y-2 md:space-y-0">
                 <div class="p-2 bg-blue-50 text-blue-700 rounded-md border border-blue-200 text-sm">
                     <p id="connectionStatus">Menyambung ke Google Sheets...</p>
-                    <p class="text-xs mt-1 text-blue-500">https://docs.google.com/spreadsheets/d/e/2PACX-1vQI_3gP29phRHqwgUdfFkfDk401NEb0F4OpUP0zCJZEv3OuzWAVNVkfS9KEcawpTK-U0VUXQhvlr0gk/pub?output=csv</p>
+                    <p class="text-xs mt-1 text-blue-500">Spreadsheet ID: 1jCsH_rmCCJSbUYbPkuStsQv_pLo-tLNE8NHDoEvh2gg</p>
                 </div>
                 <div class="flex space-x-2">
                     <button 
@@ -50,6 +50,11 @@
                         Daftar Pelawat Baru
                     </button>
                 </div>
+            </div>
+            
+            <!-- Notifikasi -->
+            <div id="notificationContainer" class="mb-4 p-3 rounded-md border hidden">
+                <p id="notificationMessage"></p>
             </div>
             
             <!-- Notifikasi Ralat -->
@@ -201,13 +206,31 @@
                 </form>
             </div>
             
-            <!-- Panduan Checkout -->
+            <!-- Panduan Setup Google Apps Script -->
             <div class="mb-6 p-3 bg-purple-50 border border-purple-200 rounded-md">
-                <h3 class="text-purple-800 font-medium">Panduan Checkout di Google Sheets:</h3>
+                <h3 class="text-purple-800 font-medium">Panduan Google Apps Script:</h3>
                 <p class="text-sm mt-1 text-purple-700">
-                    Untuk menandakan pelawat telah checkout di Google Sheets, isikan kolum "MasaKeluar" dengan format waktu 24 jam (contoh: 15:30).
-                    Ini akan secara automatik menukarkan status pelawat kepada "Selesai" dalam sistem ini.
+                    Untuk mengaktifkan penulisan ke Google Sheets dari borang ini, anda perlu:
                 </p>
+                <ol class="text-sm mt-2 text-purple-700 list-decimal pl-5 space-y-1">
+                    <li>Salin kod Google Apps Script yang disediakan ke dalam projek Apps Script baru</li>
+                    <li>Terbitkan skrip sebagai "Web App" dengan tetapan: Execute as: "Me" dan Who has access: "Anyone, even anonymous"</li>
+                    <li>Salin URL web app yang dihasilkan dan kemaskini alamat API_URL dalam kod HTML ini</li>
+                </ol>
+                <div class="mt-2 text-sm text-purple-700">
+                    <input 
+                        type="text" 
+                        id="apiUrlInput" 
+                        class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        placeholder="Masukkan URL Google Apps Script Web App anda di sini"
+                    />
+                    <button 
+                        id="updateApiUrlButton"
+                        class="mt-2 px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
+                    >
+                        Kemaskini URL API
+                    </button>
+                </div>
             </div>
             
             <!-- Loading Indicator -->
@@ -245,8 +268,8 @@
                     <li>Data diambil secara langsung dari Google Sheets yang diterbitkan</li>
                     <li>Klik butang 🔄 untuk kemaskini manual</li>
                     <li>Gunakan butang "Muat Turun Data" untuk menyimpan data pelawat dalam format CSV</li>
-                    <li>Butang "Checkout" akan mengisi masa keluar dengan masa semasa (tidak disimpan ke Google Sheets)</li>
-                    <li>Untuk menulis ke Google Sheets, anda perlu menggunakan Google Apps Script atau Google Sheets API</li>
+                    <li>Butang "Checkout" akan mengisi masa keluar dengan masa semasa</li>
+                    <li>Selepas setup Google Apps Script, data dari borang akan terus disimpan ke Google Sheets anda</li>
                 </ul>
             </div>
         </div>
@@ -256,6 +279,9 @@
     <script>
         // URL Google Sheets CSV
         const GOOGLE_SHEETS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQI_3gP29phRHqwgUdfFkfDk401NEb0F4OpUP0zCJZEv3OuzWAVNVkfS9KEcawpTK-U0VUXQhvlr0gk/pub?output=csv";
+        
+        // URL untuk Google Apps Script Web App
+        let API_URL = localStorage.getItem('visitorLogApiUrl') || '';
         
         // Elemen-elemen UI
         const toggleFormButton = document.getElementById('toggleFormButton');
@@ -272,6 +298,27 @@
         const errorContainer = document.getElementById('errorContainer');
         const errorMessage = document.getElementById('errorMessage');
         const formError = document.getElementById('formError');
+        const notificationContainer = document.getElementById('notificationContainer');
+        const notificationMessage = document.getElementById('notificationMessage');
+        const apiUrlInput = document.getElementById('apiUrlInput');
+        const updateApiUrlButton = document.getElementById('updateApiUrlButton');
+        
+        // Tetapkan URL API jika ada
+        if (API_URL) {
+            apiUrlInput.value = API_URL;
+        }
+        
+        // Kemaskini URL API
+        updateApiUrlButton.addEventListener('click', () => {
+            const newApiUrl = apiUrlInput.value.trim();
+            if (newApiUrl) {
+                API_URL = newApiUrl;
+                localStorage.setItem('visitorLogApiUrl', API_URL);
+                showNotification('URL API berjaya dikemaskini', 'bg-green-50 text-green-700 border-green-200');
+            } else {
+                showNotification('Sila masukkan URL API yang sah', 'bg-red-50 text-red-700 border-red-200');
+            }
+        });
         
         // Simpan data pengunjung
         let visitors = [];
@@ -337,7 +384,7 @@
         });
         
         // Hantar borang
-        newVisitorForm.addEventListener('submit', (e) => {
+        newVisitorForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
             // Ambil nilai dari borang
@@ -371,6 +418,42 @@
                 NoKP: idNumber
             };
             
+            // Jika API_URL ditetapkan, cuba hantar ke Google Apps Script
+            if (API_URL) {
+                try {
+                    const submitButton = newVisitorForm.querySelector('button[type="submit"]');
+                    submitButton.disabled = true;
+                    submitButton.textContent = 'Sedang menghantar...';
+                    
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        body: JSON.stringify(newVisitor),
+                        headers: { 'Content-Type': 'text/plain' }
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.status === 'success') {
+                        showNotification('Pelawat berjaya didaftarkan ke Google Sheets', 'bg-green-50 text-green-700 border-green-200');
+                    } else {
+                        showNotification('Ralat: ' + result.message, 'bg-red-50 text-red-700 border-red-200');
+                    }
+                    
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Daftar Pelawat';
+                    
+                } catch (error) {
+                    console.error('Error saving to Google Sheets:', error);
+                    showNotification('Gagal simpan ke Google Sheets: ' + error.message, 'bg-red-50 text-red-700 border-red-200');
+                    
+                    const submitButton = newVisitorForm.querySelector('button[type="submit"]');
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Daftar Pelawat';
+                }
+            } else {
+                showNotification('URL API belum ditetapkan. Data hanya disimpan secara tempatan.', 'bg-yellow-50 text-yellow-700 border-yellow-200');
+            }
+            
             visitors.unshift(newVisitor); // Tambah ke awal senarai
             renderVisitorTable();
             updateLastUpdateTime();
@@ -382,10 +465,19 @@
             visitorForm.classList.add('hidden');
             toggleFormButton.textContent = 'Daftar Pelawat Baru';
             formError.classList.add('hidden');
-            
-            // Dalam implementasi penuh, di sini akan ada kod untuk menghantar data ke Google Sheets
-            console.log('New visitor added:', newVisitor);
         });
+        
+        // Papar notifikasi
+        function showNotification(message, classes) {
+            notificationMessage.textContent = message;
+            notificationContainer.className = `mb-4 p-3 rounded-md border ${classes}`;
+            notificationContainer.classList.remove('hidden');
+            
+            // Hilangkan notifikasi selepas 5 saat
+            setTimeout(() => {
+                notificationContainer.classList.add('hidden');
+            }, 5000);
+        }
         
         // Fungsi untuk mendapatkan data dari Google Sheets
         function fetchVisitorData() {
@@ -568,13 +660,45 @@
         }
         
         // Checkout pelawat
-        function checkoutVisitor(index) {
-            visitors[index].MasaKeluar = new Date().toTimeString().slice(0, 5);
+        async function checkoutVisitor(index) {
+            const currentTime = new Date().toTimeString().slice(0, 5);
+            visitors[index].MasaKeluar = currentTime;
+            
+            // Jika API_URL ditetapkan, cuba hantar kemaskini ke Google Apps Script
+            if (API_URL) {
+                try {
+                    const checkoutData = {
+                        Nama: visitors[index].Nama,
+                        Tarikh: visitors[index].Tarikh,
+                        MasaMasuk: visitors[index].MasaMasuk,
+                        MasaKeluar: currentTime
+                    };
+                    
+                    // Panggil endpoint updateCheckout di Google Apps Script
+                    const response = await fetch(API_URL + '?action=updateCheckout', {
+                        method: 'POST',
+                        body: JSON.stringify(checkoutData),
+                        headers: { 'Content-Type': 'text/plain' }
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.status === 'success') {
+                        showNotification('Pelawat berjaya checkout ke Google Sheets', 'bg-green-50 text-green-700 border-green-200');
+                    } else {
+                        showNotification('Ralat checkout: ' + result.message, 'bg-red-50 text-red-700 border-red-200');
+                    }
+                    
+                } catch (error) {
+                    console.error('Error updating checkout in Google Sheets:', error);
+                    showNotification('Gagal kemaskini checkout ke Google Sheets: ' + error.message, 'bg-red-50 text-red-700 border-red-200');
+                }
+            } else {
+                showNotification('URL API belum ditetapkan. Checkout hanya direkodkan secara tempatan.', 'bg-yellow-50 text-yellow-700 border-yellow-200');
+            }
+            
             renderVisitorTable();
             updateLastUpdateTime();
-            
-            // Dalam implementasi penuh, di sini akan ada kod untuk menghantar data ke Google Sheets
-            console.log('Visitor checked out:', visitors[index]);
         }
         
         // Event listener untuk butang refresh
